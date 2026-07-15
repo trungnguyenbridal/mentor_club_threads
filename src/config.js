@@ -14,7 +14,14 @@ const cfg = {
   TH_USER:  process.env.THREADS_USER_ID      || '',   // để trống -> tự lấy qua /me
   TH_VER:   process.env.THREADS_API_VERSION  || 'v1.0',
   RESPECT_SCHEDULE: process.env.RESPECT_SCHEDULE !== 'false',
-  // Host media (để đăng ảnh/video Threads cần URL công khai)
+  // Host media (để đăng ảnh/video Threads cần URL công khai).
+  // MEDIA_HOST: 'wordpress' | 'ftp'. Trống -> tự chọn: có WP_URL dùng WordPress, else có FTP dùng FTP.
+  MEDIA_HOST: (process.env.MEDIA_HOST || '').toLowerCase(),
+  // WordPress Media Library (upload lên domain của bạn qua Application Password)
+  WP_URL:  (process.env.WP_URL || '').replace(/\/$/, ''),
+  WP_USER: process.env.WP_USER || '',
+  WP_APP_PASSWORD: process.env.WP_APP_PASSWORD || '',
+  // FTP (cơ chế gốc của upstream)
   FTP_HOST:  process.env.HANGCHINA_FTP_HOST || '',
   FTP_USER:  process.env.HANGCHINA_FTP_USER || '',
   FTP_PASS:  process.env.HANGCHINA_FTP_PASS || '',

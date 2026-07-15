@@ -52,7 +52,7 @@ Threads đăng bằng **repository_dispatch** của GitHub. Trong Lark tạo **A
 
 **⭐ Nút "Đăng" ở TỪNG DÒNG — bấm dòng nào đăng đúng dòng đó (theo record_id):**
 ```
-POST  https://api.github.com/repos/hangchinaaibusiness-svg/mentor_club_threads/dispatches
+POST  https://api.github.com/repos/trungnguyenbridal/mentor_club_threads/dispatches
 Headers:
   Authorization: Bearer <PAT_scope_repo>
   Accept: application/vnd.github+json
@@ -64,23 +64,23 @@ Trong Lark Automation, chọn trigger "Khi bấm nút" rồi map `record_id` = *
 
 **Đăng TẤT CẢ dòng "Chờ đăng" (để trống record_id):**
 ```
-POST  https://api.github.com/repos/hangchinaaibusiness-svg/mentor_club_threads/dispatches
+POST  https://api.github.com/repos/trungnguyenbridal/mentor_club_threads/dispatches
 Body (JSON):
   {"event_type":"dang-threads"}
 ```
 
 **Tạo/đồng bộ bảng:**
 ```
-POST  https://api.github.com/repos/hangchinaaibusiness-svg/mentor_club_threads/dispatches
+POST  https://api.github.com/repos/trungnguyenbridal/mentor_club_threads/dispatches
 Body: {"event_type":"init-tables"}
 ```
 
 **Cách khác — gọi thẳng 1 workflow (workflow_dispatch), cần `ref`:**
 ```
-POST  https://api.github.com/repos/hangchinaaibusiness-svg/mentor_club_threads/actions/workflows/dang-threads.yml/dispatches
+POST  https://api.github.com/repos/trungnguyenbridal/mentor_club_threads/actions/workflows/dang-threads.yml/dispatches
 Body: {"ref":"main"}
 
-POST  https://api.github.com/repos/hangchinaaibusiness-svg/mentor_club_threads/actions/workflows/init-tables.yml/dispatches
+POST  https://api.github.com/repos/trungnguyenbridal/mentor_club_threads/actions/workflows/init-tables.yml/dispatches
 Body: {"ref":"main"}
 ```
 

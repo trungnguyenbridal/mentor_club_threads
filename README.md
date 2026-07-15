@@ -9,7 +9,7 @@ Cỗ máy đăng bài lên **Threads** (app của Meta) điều khiển từ m�
 ## Cài nhanh cho máy/base mới (chỉ từ link git này)
 
 ```bash
-git clone https://github.com/hangchinaaibusiness-svg/mentor_club_threads.git
+git clone https://github.com/trungnguyenbridal/mentor_club_threads.git
 cd mentor_club_threads
 cp .env.example .env      # điền LARK_* + THREADS_* (xem .env.example)
 node src/init-tables.js   # tạo bảng "14.7 Đăng Threads (Meta)" trong Base

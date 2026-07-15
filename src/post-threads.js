@@ -33,7 +33,37 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const plain = L.plain;
 const isVid = a => /\.(mp4|mov|m4v|webm|avi|mkv)$/i.test(a.name || '') || /^video/i.test(a.type || '');
 
-function hostMedia(localPath, name) {
+const MIME = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif',
+  mp4: 'video/mp4', mov: 'video/quicktime', m4v: 'video/x-m4v', webm: 'video/webm' };
+const mimeOf = (name, fallback) => MIME[(String(name).split('.').pop() || '').toLowerCase()] || fallback || 'application/octet-stream';
+
+// Đưa file local -> URL công khai (Threads bắt buộc URL công khai cho ảnh/video).
+// Chọn host theo MEDIA_HOST, nếu trống thì tự đoán: có WP_URL -> WordPress, else có FTP -> FTP.
+async function hostMedia(localPath, name, mime) {
+  const which = cfg.MEDIA_HOST || (cfg.WP_URL ? 'wordpress' : (cfg.FTP_HOST ? 'ftp' : ''));
+  if (which === 'wordpress') return hostWordPress(localPath, name, mime);
+  if (which === 'ftp') return hostFtp(localPath, name);
+  throw new Error('chưa cấu hình host ảnh/video: đặt WP_URL/WP_USER/WP_APP_PASSWORD (WordPress) hoặc HANGCHINA_FTP_* (FTP). Bài TEXT/URL không cần.');
+}
+
+// Upload vào WordPress Media Library CỦA BẠN -> URL trên domain bạn kiểm soát.
+async function hostWordPress(localPath, name, mime) {
+  if (!cfg.WP_URL || !cfg.WP_USER || !cfg.WP_APP_PASSWORD) throw new Error('thiếu WP_URL/WP_USER/WP_APP_PASSWORD để host lên WordPress');
+  const buf = fs.readFileSync(localPath);
+  const auth = 'Basic ' + Buffer.from(`${cfg.WP_USER}:${cfg.WP_APP_PASSWORD}`).toString('base64');
+  const fname = (name || 'media').replace(/[^\w.\-]/g, '_');
+  const r = await fetch(cfg.WP_URL + '/wp-json/wp/v2/media', {
+    method: 'POST',
+    headers: { Authorization: auth, 'Content-Disposition': `attachment; filename="${fname}"`, 'Content-Type': mime || mimeOf(name) },
+    body: buf,
+  });
+  const t = await r.text(); let j; try { j = JSON.parse(t); } catch { j = {}; }
+  if (!r.ok || !j.source_url) throw new Error('WP upload lỗi ' + r.status + ': ' + t.slice(0, 200));
+  return j.source_url;
+}
+
+// Upload qua FTP (cơ chế gốc upstream).
+function hostFtp(localPath, name) {
   if (!cfg.FTP_HOST || !cfg.FTP_USER || !cfg.FTP_PASS) throw new Error('thiếu HANGCHINA_FTP_* để host ảnh/video (chỉ đăng được TEXT hoặc URL công khai)');
   const remote = `${Date.now()}_${(name || 'm').replace(/[^\w.]/g, '')}`;
   const url = `ftp://${cfg.FTP_HOST}/${cfg.MEDIA_DIR}/${remote}`;
@@ -75,9 +105,23 @@ async function waitReady(cid, tok, maxSec = 120) {
   throw new Error('container chưa sẵn sàng sau ' + maxSec + 's');
 }
 async function publish(uid, tok, cid) {
-  const j = await thFetch(`${TH}/${uid}/threads_publish`, { creation_id: cid, access_token: tok }, 'POST');
-  if (!j.id) throw new Error('publish không trả id');
-  return j.id;
+  // Threads cần vài giây để "đăng ký" container trước khi publish — kể cả bài TEXT.
+  // Publish sớm quá trả lỗi code 24 / subcode 4279009 ("không tìm thấy file phương tiện").
+  // → chờ + thử lại tối đa ~40s cho tới khi container sẵn sàng.
+  let lastErr;
+  for (let i = 0; i < 10; i++) {
+    try {
+      const j = await thFetch(`${TH}/${uid}/threads_publish`, { creation_id: cid, access_token: tok }, 'POST');
+      if (!j.id) throw new Error('publish không trả id');
+      return j.id;
+    } catch (e) {
+      lastErr = e;
+      const m = String(e.message || e);
+      if (/4279009|does not exist|Media ID|not.*ready|media.*not.*found/i.test(m)) { await sleep(4000); continue; }
+      throw e;
+    }
+  }
+  throw lastErr;
 }
 async function permalink(mediaId, tok) {
   try { const j = await thFetch(`${TH}/${mediaId}`, { fields: 'permalink', access_token: tok }, 'GET'); return j.permalink || ''; }
@@ -145,7 +189,7 @@ function scheduleMs(cell) {
           const f = kind === 'VIDEO' ? (atts.find(isVid) || atts[0]) : (atts.find(a => !isVid(a)) || atts[0]);
           const p = path.join(os.tmpdir(), `th_${recId}_${(f.name || 'm').replace(/[^\w.]/g, '')}`);
           await L.downloadMedia(tk, tid, f.file_token, p); tmp.push(p);
-          const hosted = hostMedia(p, f.name); log(`     ↑ host: ${hosted}`);
+          const hosted = await hostMedia(p, f.name, f.type); log(`     ↑ host: ${hosted}`);
           if (kind === 'VIDEO') videoUrl = hosted; else imageUrl = hosted;
         }
       }
